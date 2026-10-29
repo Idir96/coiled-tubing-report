@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CT Report Mobile - تطبيق تقارير Coiled Tubing</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #f4f6f9; padding: 10px; color: #333; direction: rtl; -webkit-tap-highlight-color: transparent; }
+        .container { max-width: 100%; margin: 0 auto; background: #ffffff; padding: 12px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        
+        .app-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e9ecef; padding-bottom: 10px; margin-bottom: 12px; }
+        .logo-area { display: flex; align-items: center; gap: 8px; }
+        .logo { background: #003366; color: #fff; padding: 6px 12px; font-weight: bold; font-size: 16px; border-radius: 8px; }
+        .title h1 { font-size: 16px; color: #003366; font-weight: bold; }
+        .title p { font-size: 10px; color: #6c757d; }
+        
+        .btn-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+        .btn { padding: 10px; border: none; border-radius: 8px; font-weight: bold; font-size: 12px; text-align: center; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .btn-add { background: #2e7d32; color: white; grid-column: span 2; font-size: 14px; padding: 12px; }
+        .btn-excel { background: #00796b; color: white; }
+        .btn-backup { background: #6a1b9a; color: white; }
+        .btn-restore { background: #e65100; color: white; }
+        .btn-clear { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        
+        .info-card { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px; margin-bottom: 12px; direction: ltr; }
+        .info-card h3 { text-align: right; font-size: 12px; color: #003366; margin-bottom: 8px; border-bottom: 1px solid #dee2e6; padding-bottom: 4px; }
+        .grid-mobile { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .field-box { display: flex; flex-direction: column; }
+        .field-box label { font-size: 10px; font-weight: bold; color: #495057; margin-bottom: 2px; text-align: left; }
+        .field-input { padding: 8px; border: 1px solid #ced4da; border-radius: 6px; font-size: 12px; background: white; }
+        
+        .table-area { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 10px; direction: ltr; border: 1px solid #dee2e6; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 750px; }
+        th { background: #003366; color: white; padding: 10px 4px; font-size: 11px; border: 1px solid #002244; text-align: center; white-space: nowrap; }
+        td { padding: 4px; border: 1px solid #dee2e6; background: white; }
+        
+        .tbl-input { width: 100%; border: 1px solid #ced4da; padding: 7px 4px; border-radius: 4px; font-size: 12px; text-align: center; background: #fff; }
+        .tbl-input:focus { border-color: #003366; outline: none; background: #f0f7ff; }
+        .btn-del { background: #ffebee; border: 1px solid #ffcdd2; color: #d32f2f; border-radius: 6px; padding: 6px 10px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        
+        .status-toast { font-size: 11px; color: #2e7d32; font-weight: bold; text-align: center; display: none; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="app-header">
+            <div class="logo-area">
+                <div class="logo">CT</div>
+                <div class="title">
+                    <h1>تطبيق تقارير Coiled Tubing</h1>
+                    <p>يعمل 100% بدون إنترنت | حفظ تلقائي وتصدير Excel</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="btn-bar">
+            <button onclick="addRow()" class="btn btn-add">➕ إضافة سطر جديد (Add Row)</button>
+            <button onclick="exportToExcel()" class="btn btn-excel">📊 تصدير Excel منظم</button>
+            <button onclick="exportBackup()" class="btn btn-backup">📦 حفظ Backup</button>
+            <button onclick="document.getElementById('importFile').click()" class="btn btn-restore">📥 استرجاع Backup</button>
+            <button onclick="clearAllData()" class="btn btn-clear">🗑️ مسح الكل</button>
+            <input type="file" id="importFile" accept=".json" style="display:none;" onchange="importBackup(event)">
+        </div>
+
+        <div class="info-card">
+            <h3>معلومات البئر والتقرير (Header Details)</h3>
+            <div class="grid-mobile">
+                <div class="field-box"><label>Company</label><input type="text" id="hdr_company" value="ALSCIF" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>CT #</label><input list="ctNoList" id="hdr_ct" value="12 (1.5&quot;)" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>Well #</label><input type="text" id="hdr_well" value="HRC073" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>Well Type</label><input list="wellTypeList" id="hdr_type" value="C/O" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>Service Type</label><input list="serviceTypeList" id="hdr_service" value="GAZ" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>Customer</label><input list="customerList" id="hdr_customer" value="SH-DP-ARM" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>Date</label><input type="date" id="hdr_date" value="2026-10-29" class="field-input" onchange="autoSave()"></div>
+                <div class="field-box"><label>BHA Type</label><input list="bhaList" id="hdr_bha" value="BHA STD" class="field-input" onchange="autoSave()"></div>
+            </div>
+        </div>
+
+        <div class="table-area">
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th style="width:75px;">Time</th>
+                        <th style="width:70px;">Depth</th>
+                        <th style="width:80px;">CTU Press</th>
+                        <th style="width:80px;">WH Press</th>
+                        <th style="width:85px;">Liq. Rate</th>
+                        <th style="width:85px;">N2 Rate</th>
+                        <th style="width:130px;">Fluid Type</th>
+                        <th style="width:80px;">Stage Total</th>
+                        <th style="width:80px;">Weight</th>
+                        <th style="width:200px;">Event Type / Remarks</th>
+                        <th style="width:45px;">حذف</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <div id="saveStatus" class="status-toast">✓ تم الحفظ تلقائياً في ذاكرة الجهاز</div>
+    </div>
+
+    <datalist id="ctNoList">
+        <option value="CT Unit 01 (1.5&quot;)"></option><option value="CT Unit 02 (1.75&quot;)"></option>
+        <option value="CT Unit 03 (2&quot;)"></option><option value="12 (1.5&quot;)"></option>
+    </datalist>
+
+    <datalist id="wellTypeList">
+        <option value="C/O (Clean Out)"></option><option value="PROD (Oil Producer)"></option>
+        <option value="GAZ (Gas Producer)"></option><option value="INJ (Water Injector)"></option>
+        <option value="GL (Gas Lift)"></option><option value="P&A (Plugged & Abandoned)"></option>
+    </datalist>
+
+    <datalist id="serviceTypeList">
+        <option value="GAZ / Gas Lift Operation"></option><option value="N2 Lift / Nitrogen Unloading"></option>
+        <option value="Well Cleanout / Sand Removal"></option><option value="Matrix Acidizing / Stimulation"></option>
+        <option value="Scale Removal / Milling"></option><option value="Chemical Solvent Injection"></option>
+        <option value="Coiled Tubing Drilling (CTD)"></option><option value="Fishing Operation"></option>
+    </datalist>
+
+    <datalist id="customerList">
+        <option value="SH-DP-ARM"></option><option value="SONATRACH DP"></option>
+        <option value="Groupement Berkine"></option><option value="Groupement Isarene"></option>
+        <option value="Eni Algeria"></option><option value="SLB"></option><option value="Baker Hughes"></option>
+    </datalist>
+
+    <datalist id="bhaList">
+        <option value="BHA STD (Standard DFCV + Release)"></option><option value="BHA Jetting Nozzle"></option>
+        <option value="BHA Downhole Motor + Mill"></option><option value="BHA Inflatable Packer"></option>
+    </datalist>
+
+    <datalist id="fluidTypesList">
+        <option value="Fresh Water"></option><option value="Brine / KCl (2%)"></option><option value="Brine / KCl (3%)"></option>
+        <option value="Heavy Brine (CaCl2)"></option><option value="Diesel"></option><option value="Acid (15% HCl)"></option>
+        <option value="Acid (28% HCl)"></option><option value="Mutual Solvent"></option><option value="Nitrogen (N2)"></option>
+        <option value="Gelled Fluid / Polymer"></option><option value="Foam Fluid"></option><option value="Viscous Sweep Pill"></option>
+    </datalist>
+
+    <datalist id="eventTypesList">
+        <option value="On Location + Safety Meeting (PJSM)"></option>
+        <option value="Rig Up CT Equipment & Pressure Test (PT)"></option>
+        <option value="Pressure Test Lubricator & BOP"></option>
+        <option value="Open Wellhead Swab Valve"></option>
+        <option value="Close Wellhead Valve"></option>
+        <option value="RIH (Run In Hole) to depth"></option>
+        <option value="POOH (Pull Out Of Hole) to surface"></option>
+        <option value="Pull Test / Tension Test"></option>
+        <option value="Tag Sand / Top of Fill (TOF)"></option>
+        <option value="Pumping Fluid / Displacement"></option>
+        <option value="Pumping Nitrogen (N2 Lift)"></option>
+        <option value="Acidizing Job / Acid Pumping"></option>
+        <option value="Jetting / Well Washing Operation"></option>
+        <option value="Milling / Scale Cleanout Operation"></option>
+        <option value="Rig Down CT Equipment"></option>
+        <option value="Securing Location / Job Complete"></option>
+    </datalist>
+
+    <script>
+        const defaultData = [
+            { time: '09:00', depth: '', ctuPress: '', whPress: '', liquidRate: '', n2Rate: '', fluidType: '', stageTotal: '', weight: '', event: 'On Location + Safety Meeting (PJSM)' },
+            { time: '13:10', depth: '', ctuPress: '5000', whPress: '5000', liquidRate: '', n2Rate: '', fluidType: 'Fresh Water', stageTotal: '', weight: '-350', event: 'Rig Up CT Equipment & Pressure Test (PT)' },
+            { time: '13:35', depth: '', ctuPress: '300', whPress: '350', liquidRate: '', n2Rate: '', fluidType: '', stageTotal: '', weight: '', event: 'Open Wellhead Swab Valve' },
+            { time: '14:15', depth: '700', ctuPress: '', whPress: '355', liquidRate: '', n2Rate: '', fluidType: '', stageTotal: '', weight: '6500', event: 'Pull Test / Tension Test' }
+        ];
+
+        let rowData = JSON.parse(localStorage.getItem('ct_mobile_rows')) || defaultData;
+        let headerData = JSON.parse(localStorage.getItem('ct_mobile_header')) || null;
+
+        if(headerData) {
+            document.getElementById('hdr_company').value = headerData.company || 'ALSCIF';
+            document.getElementById('hdr_ct').value = headerData.ct || '12 (1.5")';
+            document.getElementById('hdr_well').value = headerData.well || 'HRC073';
+            document.getElementById('hdr_type').value = headerData.type || 'C/O';
+            document.getElementById('hdr_service').value = headerData.service || 'GAZ';
+            document.getElementById('hdr_customer').value = headerData.customer || 'SH-DP-ARM';
+            document.getElementById('hdr_date').value = headerData.date || '2026-10-29';
+            document.getElementById('hdr_bha').value = headerData.bha || 'BHA STD';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            rowData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="time" class="tbl-input" value="${row.time || ''}" onchange="updateRow(${index}, 'time', this.value)"></td>
+                    <td><input type="number" class="tbl-input" value="${row.depth || ''}" placeholder="0" onchange="updateRow(${index}, 'depth', this.value)"></td>
+                    <td><input type="number" class="tbl-input" value="${row.ctuPress || ''}" placeholder="0" onchange="updateRow(${index}, 'ctuPress', this.value)"></td>
+                    <td><input type="number" class="tbl-input" value="${row.whPress || ''}" placeholder="0" onchange="updateRow(${index}, 'whPress', this.value)"></td>
+                    <td><input type="text" class="tbl-input" value="${row.liquidRate || ''}" placeholder="bbl/min" onchange="updateRow(${index}, 'liquidRate', this.value)"></td>
+                    <td><input type="text" class="tbl-input" value="${row.n2Rate || ''}" placeholder="L/min" onchange="updateRow(${index}, 'n2Rate', this.value)"></td>
+                    <td><input list="fluidTypesList" class="tbl-input" value="${row.fluidType || ''}" placeholder="السائل" onchange="updateRow(${index}, 'fluidType', this.value)"></td>
+                    <td><input type="text" class="tbl-input" value="${row.stageTotal || ''}" placeholder="bbl" onchange="updateRow(${index}, 'stageTotal', this.value)"></td>
+                    <td><input type="text" class="tbl-input" value="${row.weight || ''}" placeholder="lbs" onchange="updateRow(${index}, 'weight', this.value)"></td>
+                    <td><input list="eventTypesList" class="tbl-input" style="text-align:left;" value="${row.event || ''}" placeholder="العملية / ملاحظات" onchange="updateRow(${index}, 'event', this.value)"></td>
+                    <td style="text-align:center;"><button onclick="deleteRow(${index})" class="btn-del">✖</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateRow(index, field, value) {
+            rowData[index][field] = value;
+            autoSave();
+        }
+
+        function addRow() {
+            rowData.push({ time: '', depth: '', ctuPress: '', whPress: '', liquidRate: '', n2Rate: '', fluidType: '', stageTotal: '', weight: '', event: '' });
+            renderTable();
+            autoSave();
+        }
+
+        function deleteRow(index) {
+            rowData.splice(index, 1);
+            renderTable();
+            autoSave();
+        }
+
+        function autoSave() {
+            localStorage.setItem('ct_mobile_rows', JSON.stringify(rowData));
+            const currentHeader = {
+                company: document.getElementById('hdr_company').value,
+                ct: document.getElementById('hdr_ct').value,
+                well: document.getElementById('hdr_well').value,
+                type: document.getElementById('hdr_type').value,
+                service: document.getElementById('hdr_service').value,
+                customer: document.getElementById('hdr_customer').value,
+                date: document.getElementById('hdr_date').value,
+                bha: document.getElementById('hdr_bha').value
+            };
+            localStorage.setItem('ct_mobile_header', JSON.stringify(currentHeader));
+            
+            const status = document.getElementById('saveStatus');
+            status.style.display = 'block';
+            setTimeout(() => { status.style.display = 'none'; }, 1500);
+        }
+
+        function clearAllData() {
+            if(confirm('هل أنت تأكد من مسح جميع السجلات؟')) {
+                rowData = [];
+                localStorage.removeItem('ct_mobile_rows');
+                localStorage.removeItem('ct_mobile_header');
+                renderTable();
+            }
+        }
+
+        function exportToExcel() {
+            const company = document.getElementById('hdr_company').value || 'ALSCIF';
+            const ct = document.getElementById('hdr_ct').value || '';
+            const well = document.getElementById('hdr_well').value || '';
+            const typeWell = document.getElementById('hdr_type').value || '';
+            const service = document.getElementById('hdr_service').value || '';
+            const customer = document.getElementById('hdr_customer').value || '';
+            const date = document.getElementById('hdr_date').value || '';
+            const bha = document.getElementById('hdr_bha').value || '';
+
+            let excelHTML = `
+            <html xmlns:o="urn:schemas-microsoft-microsoft-com:office:office" 
+                  xmlns:x="urn:schemas-microsoft-microsoft-com:office:excel" 
+                  xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="utf-8">
+                <!--[if gte mso 9]>
+                <xml>
+                    <x:ExcelWorkbook>
+                        <x:ExcelWorksheets>
+                            <x:ExcelWorksheet>
+                                <x:Name>Treatment Report</x:Name>
+                                <x:WorksheetOptions>
+                                    <x:DisplayGridlines/>
+                                </x:WorksheetOptions>
+                            </x:ExcelWorksheet>
+                        </x:ExcelWorksheets>
+                    </x:ExcelWorkbook>
+                </xml>
+                <![endif]-->
+                <style>
+                    body { font-family: Calibri, Arial, sans-serif; }
+                    .title-cell { font-size: 16pt; font-weight: bold; color: #1F4E78; text-align: left; background-color: #D9E1F2; height: 35px; border: 1px solid #8EA9DB; }
+                    .hdr-label { font-size: 10pt; font-weight: bold; color: #333333; background-color: #F2F2F2; border: 1px solid #D9D9D9; text-align: left; padding: 4px; }
+                    .hdr-val { font-size: 10pt; color: #000000; border: 1px solid #D9D9D9; text-align: left; padding: 4px; }
+                    .th-col { font-size: 11pt; font-weight: bold; color: #FFFFFF; background-color: #1F4E78; border: 1px solid #1F4E78; text-align: center; vertical-align: middle; height: 30px; }
+                    .td-center { font-size: 10pt; border: 1px solid #D9D9D9; text-align: center; vertical-align: middle; height: 22px; }
+                    .td-left { font-size: 10pt; border: 1px solid #D9D9D9; text-align: left; vertical-align: middle; height: 22px; padding-left: 5px; }
+                    .tr-even { background-color: #F9FAFB; }
+                    .tr-odd { background-color: #FFFFFF; }
+                </style>
+            </head>
+            <body>
+                <table>
+                    <tr><td colspan="10" class="title-cell">&nbsp; ${company} - Coiled Tubing Treatment Report</td></tr>
+                    <tr><td colspan="10"></td></tr>
+                    <tr>
+                        <td class="hdr-label">CT #:</td><td class="hdr-val">${ct}</td>
+                        <td class="hdr-label">Well #:</td><td class="hdr-val">${well}</td>
+                        <td class="hdr-label">Type of Well:</td><td class="hdr-val" colspan="5">${typeWell}</td>
+                    </tr>
+                    <tr>
+                        <td class="hdr-label">Service Type:</td><td class="hdr-val">${service}</td>
+                        <td class="hdr-label">Customer:</td><td class="hdr-val">${customer}</td>
+                        <td class="hdr-label">Date:</td><td class="hdr-val" colspan="5">${date}</td>
+                    </tr>
+                    <tr>
+                        <td class="hdr-label">BHA Type:</td><td class="hdr-val" colspan="9">${bha}</td>
+                    </tr>
+                    <tr><td colspan="10"></td></tr>
+                    <tr>
+                        <th class="th-col" style="width: 80px;">Time</th>
+                        <th class="th-col" style="width: 90px;">Depth (m)</th>
+                        <th class="th-col" style="width: 110px;">CTU Press (psi)</th>
+                        <th class="th-col" style="width: 110px;">WH Press (psi)</th>
+                        <th class="th-col" style="width: 130px;">Liquid Rate (bbl/min)</th>
+                        <th class="th-col" style="width: 120px;">N2 Rate (L/min)</th>
+                        <th class="th-col" style="width: 140px;">Fluid Type</th>
+                        <th class="th-col" style="width: 110px;">Stage Total (bbl)</th>
+                        <th class="th-col" style="width: 110px;">Weight (lbs)</th>
+                        <th class="th-col" style="width: 300px;">Event Type / Remarks</th>
+                    </tr>
+            `;
+
+            rowData.forEach((r, idx) => {
+                const rowClass = idx % 2 === 0 ? 'tr-odd' : 'tr-even';
+                excelHTML += `
+                    <tr class="${rowClass}">
+                        <td class="td-center">${r.time || ''}</td>
+                        <td class="td-center">${r.depth || ''}</td>
+                        <td class="td-center">${r.ctuPress || ''}</td>
+                        <td class="td-center">${r.whPress || ''}</td>
+                        <td class="td-center">${r.liquidRate || ''}</td>
+                        <td class="td-center">${r.n2Rate || ''}</td>
+                        <td class="td-center">${r.fluidType || ''}</td>
+                        <td class="td-center">${r.stageTotal || ''}</td>
+                        <td class="td-center">${r.weight || ''}</td>
+                        <td class="td-left">${r.event || ''}</td>
+                    </tr>
+                `;
+            });
+
+            excelHTML += `</table></body></html>`;
+
+            const blob = new Blob([excelHTML], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `CT_Report_${well}_${date}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function exportBackup() {
+            const backupPayload = {
+                version: "1.0",
+                timestamp: new Date().toISOString(),
+                header: {
+                    company: document.getElementById('hdr_company').value,
+                    ct: document.getElementById('hdr_ct').value,
+                    well: document.getElementById('hdr_well').value,
+                    type: document.getElementById('hdr_type').value,
+                    service: document.getElementById('hdr_service').value,
+                    customer: document.getElementById('hdr_customer').value,
+                    date: document.getElementById('hdr_date').value,
+                    bha: document.getElementById('hdr_bha').value
+                },
+                rows: rowData
+            };
+
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupPayload, null, 2));
+            const dlAnchor = document.createElement('a');
+            const wellName = document.getElementById('hdr_well').value || 'Well';
+            const dateVal = document.getElementById('hdr_date').value || 'Date';
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `CT_Backup_${wellName}_${dateVal}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function importBackup(event) {
+            const fileReader = new FileReader();
+            fileReader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (importedData.rows && Array.isArray(importedData.rows)) {
+                        rowData = importedData.rows;
+                        if (importedData.header) {
+                            document.getElementById('hdr_company').value = importedData.header.company || 'ALSCIF';
+                            document.getElementById('hdr_ct').value = importedData.header.ct || '';
+                            document.getElementById('hdr_well').value = importedData.header.well || '';
+                            document.getElementById('hdr_type').value = importedData.header.type || '';
+                            document.getElementById('hdr_service').value = importedData.header.service || '';
+                            document.getElementById('hdr_customer').value = importedData.header.customer || '';
+                            document.getElementById('hdr_date').value = importedData.header.date || '';
+                            document.getElementById('hdr_bha').value = importedData.header.bha || '';
+                        }
+                        renderTable();
+                        autoSave();
+                        alert('تم استرجاع النسخة الاحتياطية بنجاح!');
+                    } else {
+                        alert('ملف الـ Backup غير صالح.');
+                    }
+                } catch (err) {
+                    alert('خطأ أثناء قراءة ملف الـ Backup.');
+                }
+            };
+            if(event.target.files[0]) {
+                fileReader.readAsText(event.target.files[0]);
+            }
+        }
+
+        renderTable();
+    </script>
+</body>
+</html>
